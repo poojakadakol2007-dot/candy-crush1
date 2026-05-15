@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Candy Crush New Version</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: linear-gradient(135deg, #1a0533 0%, #2d0b5a 50%, #1a0533 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: 'Segoe UI', sans-serif;
+    color: white;
+    padding: 10px;
+    overflow-x: hidden;
+  }
+  h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, #ff6ec7, #ffdd57, #6ec6ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 10px 0 5px;
+    letter-spacing: 2px;
+    text-shadow: none;
+  }
+  .stats {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 8px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .stat { display: flex; flex-direction: column; align-items: center; }
+  .stat-label { font-size: 0.65rem; opacity: 0.7; letter-spacing: 1px; text-transform: uppercase; }
+  .stat-value { font-size: 1.3rem; font-weight: 800; color: #ffdd57; }
+  #level-info {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-bottom: 8px;
+  }
+  #board-wrap {
+    position: relative;
+    background: rgba(255,255,255,0.06);
+    border-radius: 18px;
+    padding: 8px;
+    border: 2px solid rgba(255,255,255,0.15);
+    box-shadow: 0 0 40px rgba(180,100,255,0.3);
+  }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(8, 52px);
+    grid-template-rows: repeat(8, 52px);
+    gap: 4px;
+  }
+  .cell {
+    width: 52px; height: 52px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem;
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s;
+    position: relative;
+    user-select: none;
+    border: 2px solid transparent;
+    background: rgba(255,255,255,0.07);
+  }
+  .cell:hover { transform: scale(1.08); z-index: 2; }
+  .cell.selected {
+    border: 2px solid #ffdd57;
+    box-shadow: 0 0 14px #ffdd57;
+    transform: scale(1.12);
+    z-index: 3;
+  }
+  .cell.hint { animation: hintPulse 0.8s ease-in-out 3; }
+  @keyframes hintPulse {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.15); border-color: #fff; box-shadow: 0 0 16px #fff; }
+  }
+  .cell.matched { animation: popOut 0.35s ease forwards; }
+  @keyframes popOut {
+    0% { transform: scale(1); opacity: 1; }
+    60% { transform: scale(1.4); opacity: 0.6; }
+    100% { transform: scale(0); opacity: 0; }
+  }
+  .cell.dropping { animation: dropIn 0.25s ease-out; }
+  @keyframes dropIn {
+    from { transform: translateY(-40px) scale(0.8); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .cell .jelly-overlay {
+    position: absolute; inset: 0; border-radius: 10px;
+    background: rgba(100,200,255,0.18); pointer-events: none;
+    border: 2px solid rgba(100,200,255,0.5);
+  }
+  .cell .ice-overlay {
+    position: absolute; inset: 0; border-radius: 10px;
+    background: rgba(200,240,255,0.22); pointer-events: none;
+    border: 2px solid rgba(180,220,255,0.6);
+  }
+  .power-badge {
+    position: absolute; top: 2px; right: 3px;
+    font-size: 0.55rem; background: rgba(0,0,0,0.5);
+    border-radius: 6px; padding: 1px 3px; color: #ffdd57;
+    font-weight: 800; pointer-events: none;
+  }
+  #msg {
+    margin-top: 10px; font-size: 1.2rem; font-weight: 700;
+    height: 28px; text-align: center; letter-spacing: 1px;
+    color: #ffdd57; text-shadow: 0 0 10px rgba(255,221,87,0.6);
+  }
+  .btns { display: flex; gap: 10px; margin-top: 10px; }
+  button {
+    padding: 8px 22px; border-radius: 22px; border: none;
+    font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  button:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+  #btn-hint { background: linear-gradient(135deg, #43e0c5, #1a8f7a); color: #fff; }
+  #btn-reset { background: linear-gradient(135deg, #ff6ec7, #c62a87); color: #fff; }
+  #overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(10,0,30,0.82); z-index: 99;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    font-size: 2rem; font-weight: 800;
+    backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; }
+  #overlay .ov-title { font-size: 2.5rem; }
+  #overlay .ov-score { font-size: 1.2rem; opacity: 0.85; }
+  #overlay button { font-size: 1.1rem; padding: 12px 36px; }
+  .stars { font-size: 2rem; }
+  .combo-burst {
+    position: fixed; pointer-events: none; z-index: 200;
+    font-size: 1.8rem; font-weight: 900;
+    color: #ffdd57; text-shadow: 0 0 12px #ffa500;
+    animation: burstUp 0.9s ease-out forwards;
+  }
+  @keyframes burstUp {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to { opacity: 0; transform: translateY(-70px) scale(1.5); }
+  }
+</style>
+</head>
+<body>
+<h1>🍬 CANDY CRUSH</h1>
+<div class="stats">
+  <div class="stat"><span class="stat-label">Score</span><span class="stat-value" id="score">0</span></div>
+  <div class="stat"><span class="stat-label">Goal</span><span class="stat-value" id="goal">0</span></div>
+  <div class="stat"><span class="stat-label">Moves</span><span class="stat-value" id="moves">0</span></div>
+  <div class="stat"><span class="stat-label">Level</span><span class="stat-value" id="level">1</span></div>
+</div>
+<div id="level-info"></div>
+<div id="board-wrap"><div id="board"></div></div>
+<div id="msg"></div>
+<div class="btns">
+  <button id="btn-hint">💡 Hint</button>
+  <button id="btn-reset">🔄 Restart</button>
+</div>
+<div id="overlay">
+  <div class="ov-title" id="ov-title"></div>
+  <div class="stars" id="ov-stars"></div>
+  <div class="ov-score" id="ov-score"></div>
+  <button id="ov-btn" onclick="overlayAction()"></button>
+</div>
+
+<script>
+const CANDIES = ['🍬','🍭','🍫','🍊','🍇','🍓'];
+const POWER = { ROCKET: 'rocket', BOMB: 'bomb', DISCO: 'disco' };
+const COLS = 8, ROWS = 8;
+const LEVELS = [
+  { goal: 500,  moves: 20, jellies: 0,  iceCount: 0,  choco: 0 },
+  { goal: 1000, moves: 22, jellies: 10, iceCount: 0,  choco: 0 },
+  { goal: 1800, moves: 24, jellies: 12, iceCount: 5,  choco: 0 },
+  { goal: 2800, moves: 26, jellies: 14, iceCount: 6,  choco: 2 },
+  { goal: 4200, moves: 28, jellies: 16, iceCount: 8,  choco: 3 },
+];
+
+let board = [], selected = null, score = 0, moves = 0, level = 0, animating = false;
+let jellyGrid = [], iceGrid = [], chocoGrid = [];
+
+function getLevelCfg() { return LEVELS[Math.min(level, LEVELS.length-1)]; }
+
+function initBoard() {
+  const cfg = getLevelCfg();
+  score = 0; moves = cfg.moves; selected = null; animating = false;
+  board = [];
+  for (let r = 0; r < ROWS; r++) {
+    board[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      board[r][c] = { candy: randCandy(), power: null };
+    }
+  }
+  // Remove initial matches
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      while (getMatch(r, c).length >= 3) board[r][c].candy = randCandy();
+
+  // Jellies
+  jellyGrid = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+  let jc = cfg.jellies;
+  while (jc-- > 0) {
+    let r = Math.floor(Math.random()*ROWS), c = Math.floor(Math.random()*COLS);
+    jellyGrid[r][c] = true;
+  }
+  // Ice
+  iceGrid = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+  let ic = cfg.iceCount;
+  while (ic-- > 0) {
+    let r = Math.floor(Math.random()*ROWS), c = Math.floor(Math.random()*COLS);
+    iceGrid[r][c] = true;
+  }
+  // Choco
+  chocoGrid = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+  let cc = cfg.choco;
+  while (cc-- > 0) {
+    let r = 2+Math.floor(Math.random()*(ROWS-2)), c = Math.floor(Math.random()*COLS);
+    chocoGrid[r][c] = true;
+  }
+  updateUI();
+  render();
+  setMsg('');
+}
+
+function randCandy() { return CANDIES[Math.floor(Math.random()*CANDIES.length)]; }
+
+function getMatch(r, c) {
+  if (board[r][c].power) return [];
+  const candy = board[r][c].candy;
+  let horiz = [[r,c]], vert = [[r,c]];
+  let i;
+  for (i=c-1; i>=0 && board[r][i].candy===candy && !board[r][i].power; i--) horiz.unshift([r,i]);
+  for (i=c+1; i<COLS && board[r][i].candy===candy && !board[r][i].power; i++) horiz.push([r,i]);
+  for (i=r-1; i>=0 && board[i][c].candy===candy && !board[i][c].power; i--) vert.unshift([i,c]);
+  for (i=r+1; i<ROWS && board[i][c].candy===candy && !board[i][c].power; i++) vert.push([i,c]);
+  let result = [];
+  if (horiz.length >= 3) result.push(...horiz);
+  if (vert.length >= 3) result.push(...vert);
+  return [...new Set(result.map(x=>x.join(',')))].map(x=>x.split(',').map(Number));
+}
+
+function getAllMatches() {
+  let all = [];
+  for (let r=0; r<ROWS; r++)
+    for (let c=0; c<COLS; c++)
+      getMatch(r,c).forEach(pos => { if (!all.find(a=>a[0]===pos[0]&&a[1]===pos[1])) all.push(pos); });
+  return all;
+}
+
+function hasPossibleMove() {
+  for (let r=0; r<ROWS; r++) for (let c=0; c<COLS; c++) {
+    const dirs = [[0,1],[1,0]];
+    for (let [dr,dc] of dirs) {
+      let nr=r+dr, nc=c+dc;
+      if (nr<ROWS&&nc<COLS) {
+        swap(r,c,nr,nc);
+        let m = getAllMatches();
+        swap(r,c,nr,nc);
+        if (m.length>0) return [r,c,nr,nc];
+      }
+    }
+  }
+  return null;
+}
+
+function swap(r1,c1,r2,c2) {
+  let tmp = board[r1][c1];
+  board[r1][c1] = board[r2][c2];
+  board[r2][c2] = tmp;
+}
+
+function isAdjacent(r1,c1,r2,c2) {
+  return (Math.abs(r1-r2)+Math.abs(c1-c2))===1;
+}
+
+function cellClick(r, c) {
+  if (animating) return;
+  if (selected === null) {
+    selected = [r,c];
+    render();
+  } else {
+    const [sr,sc] = selected;
+    if (sr===r&&sc===c) { selected=null; render(); return; }
+    if (isAdjacent(sr,sc,r,c)) {
+      selected = null;
+      trySwap(sr,sc,r,c);
+    } else {
+      selected = [r,c];
+      render();
+    }
+  }
+}
+
+async function trySwap(r1,c1,r2,c2) {
+  animating = true;
+  swap(r1,c1,r2,c2);
+  let matched = getAllMatches();
+  // Power candy activation
+  let p1 = board[r1][c1].power, p2 = board[r2][c2].power;
+  if ((p1||p2) && matched.length===0) {
+    matched = [{power:true, r:r1,c:c1,other:[r2,c2]}];
+  }
+  if (matched.length === 0) {
+    swap(r1,c1,r2,c2);
+    animating = false;
+    setMsg('No match! Try again.');
+    return;
+  }
+  moves--;
+  updateUI();
+  await processMatches(matched, 0);
+  animating = false;
+  checkGameState();
+}
+
+async function processMatches(matched, combo) {
+  if (matched.length === 0) return;
+  combo++;
+  if (combo > 1) showCombo(combo);
+  // Identify power creation
+  let toRemove = [...matched];
+  let powers = [];
+  // Detect L/T shape or 5+
+  let grouped = groupMatches(matched);
+  for (let g of grouped) {
+    if (g.length >= 5) {
+      let mid = g[Math.floor(g.length/2)];
+      powers.push({r:mid[0],c:mid[1],power:POWER.DISCO});
+    } else if (g.length === 4) {
+      let mid = g[Math.floor(g.length/2)];
+      let allSameRow = g.every(x=>x[0]===g[0][0]);
+      powers.push({r:mid[0],c:mid[1],power: allSameRow ? POWER.ROCKET : POWER.BOMB});
+    }
+  }
+  // Mark matched
+  toRemove.forEach(([r,c]) => {
+    let el = getCell(r,c);
+    if (el) el.classList.add('matched');
+    if (jellyGrid[r] && jellyGrid[r][c]) jellyGrid[r][c] = false;
+    if (iceGrid[r] && iceGrid[r][c]) iceGrid[r][c] = false;
+  });
+  score += toRemove.length * 50 * combo;
+  updateUI();
+  await delay(320);
+  // Remove
+  toRemove.forEach(([r,c]) => { board[r][c] = {candy: null, power: null}; });
+  // Place powers
+  for (let {r,c,power} of powers) board[r][c] = {candy: randCandy(), power};
+  // Drop
+  dropCandies();
+  render();
+  await delay(260);
+  // Fill
+  fillBoard();
+  render();
+  await delay(200);
+  let next = getAllMatches();
+  await processMatches(next, combo);
+}
+
+function groupMatches(matched) {
+  let groups = [], visited = new Set();
+  for (let [r,c] of matched) {
+    let key = r+','+c;
+    if (visited.has(key)) continue;
+    let candy = board[r][c].candy;
+    let grp = [];
+    let queue = [[r,c]];
+    while (queue.length) {
+      let [cr,cc] = queue.pop();
+      let k = cr+','+cc;
+      if (visited.has(k)) continue;
+      visited.add(k);
+      grp.push([cr,cc]);
+      [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc]) => {
+        let nr=cr+dr, nc=cc+dc;
+        if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&board[nr][nc].candy===candy&&!visited.has(nr+','+nc)&&matched.find(x=>x[0]===nr&&x[1]===nc))
+          queue.push([nr,nc]);
+      });
+    }
+    if (grp.length>0) groups.push(grp);
+  }
+  return groups;
+}
+
+function dropCandies() {
+  for (let c=0; c<COLS; c++) {
+    let col = [];
+    for (let r=ROWS-1; r>=0; r--) if (board[r][c].candy!==null) col.push(board[r][c]);
+    for (let r=ROWS-1; r>=0; r--) board[r][c] = col.shift() || {candy:null,power:null};
+  }
+}
+
+function fillBoard() {
+  for (let r=0; r<ROWS; r++)
+    for (let c=0; c<COLS; c++)
+      if (board[r][c].candy===null) board[r][c] = {candy: randCandy(), power: null};
+}
+
+function render() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+  for (let r=0; r<ROWS; r++) for (let c=0; c<COLS; c++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    const b = board[r][c];
+    if (b.candy) {
+      cell.textContent = b.candy;
+      if (b.power === POWER.ROCKET) {
+        let badge = document.createElement('div'); badge.className='power-badge'; badge.textContent='🚀'; cell.appendChild(badge);
+        cell.style.background='rgba(255,220,50,0.18)';
+      } else if (b.power === POWER.BOMB) {
+        let badge = document.createElement('div'); badge.className='power-badge'; badge.textContent='💣'; cell.appendChild(badge);
+        cell.style.background='rgba(255,100,50,0.18)';
+      } else if (b.power === POWER.DISCO) {
+        let badge = document.createElement('div'); badge.className='power-badge'; badge.textContent='🌈'; cell.appendChild(badge);
+        cell.style.background='rgba(200,100,255,0.22)';
+      }
+    } else {
+      cell.style.opacity='0.3';
+    }
+    if (jellyGrid[r]&&jellyGrid[r][c]) { let o=document.createElement('div'); o.className='jelly-overlay'; cell.appendChild(o); }
+    if (iceGrid[r]&&iceGrid[r][c]) { let o=document.createElement('div'); o.className='ice-overlay'; cell.appendChild(o); }
+    if (chocoGrid[r]&&chocoGrid[r][c]) { cell.style.background='rgba(100,60,20,0.5)'; cell.textContent='🟫'; }
+    if (selected && selected[0]===r && selected[1]===c) cell.classList.add('selected');
+    cell.onclick = () => cellClick(r, c);
+    boardEl.appendChild(cell);
+  }
+}
+
+function getCell(r,c) {
+  return document.getElementById('board').children[r*COLS+c];
+}
+
+function updateUI() {
+  const cfg = getLevelCfg();
+  document.getElementById('score').textContent = score.toLocaleString();
+  document.getElementById('goal').textContent = cfg.goal.toLocaleString();
+  document.getElementById('moves').textContent = moves;
+  document.getElementById('level').textContent = level+1;
+  const jellyLeft = jellyGrid.flat().filter(Boolean).length;
+  const iceLeft = iceGrid.flat().filter(Boolean).length;
+  let info = `Goal: ${cfg.goal} pts`;
+  if (jellyLeft>0) info += ` | Jellies: ${jellyLeft}`;
+  if (iceLeft>0) info += ` | Ice: ${iceLeft}`;
+  document.getElementById('level-info').textContent = info;
+}
+
+function setMsg(m) { document.getElementById('msg').textContent = m; }
+
+function checkGameState() {
+  const cfg = getLevelCfg();
+  const jellyLeft = jellyGrid.flat().filter(Boolean).length;
+  const iceLeft = iceGrid.flat().filter(Boolean).length;
+  const goalMet = score >= cfg.goal && jellyLeft===0 && iceLeft===0;
+  if (goalMet) { showOverlay(true); return; }
+  if (moves <= 0) { showOverlay(false); return; }
+  if (!hasPossibleMove()) {
+    setMsg('No moves! Shuffling...');
+    setTimeout(() => { initBoard(); }, 1000);
+  }
+}
+
+function showOverlay(win) {
+  const cfg = getLevelCfg();
+  const ov = document.getElementById('overlay');
+  const stars = score >= cfg.goal*2 ? '⭐⭐⭐' : score >= cfg.goal*1.5 ? '⭐⭐' : '⭐';
+  ov.querySelector('#ov-title').textContent = win ? '🎉 Level Complete!' : '😢 Game Over';
+  ov.querySelector('#ov-stars').textContent = win ? stars : '';
+  ov.querySelector('#ov-score').textContent = `Score: ${score.toLocaleString()}`;
+  const btn = ov.querySelector('#ov-btn');
+  if (win && level < LEVELS.length-1) { btn.textContent = '▶ Next Level'; }
+  else if (win) { btn.textContent = '🔄 Play Again'; }
+  else { btn.textContent = '🔄 Try Again'; }
+  ov.classList.add('show');
+}
+
+function overlayAction() {
+  const ov = document.getElementById('overlay');
+  const title = ov.querySelector('#ov-title').textContent;
+  ov.classList.remove('show');
+  if (title.includes('Complete') && level < LEVELS.length-1) level++;
+  else if (title.includes('Game Over')) { /* stay level */ }
+  else if (title.includes('Complete')) level = 0;
+  initBoard();
+}
+
+function showCombo(n) {
+  const div = document.createElement('div');
+  div.className = 'combo-burst';
+  div.textContent = n+'x COMBO!';
+  div.style.left = (window.innerWidth/2-60)+'px';
+  div.style.top = (window.innerHeight/2-40)+'px';
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 900);
+}
+
+function delay(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+document.getElementById('btn-hint').onclick = () => {
+  const move = hasPossibleMove();
+  if (!move) return;
+  const [r1,c1,r2,c2] = move;
+  const e1 = getCell(r1,c1), e2 = getCell(r2,c2);
+  if (e1) e1.classList.add('hint');
+  if (e2) e2.classList.add('hint');
+  setTimeout(() => { if(e1)e1.classList.remove('hint'); if(e2)e2.classList.remove('hint'); }, 2500);
+};
+document.getElementById('btn-reset').onclick = () => { document.getElementById('overlay').classList.remove('show'); initBoard(); };
+
+initBoard();
+</script>
+</body>
+</html>
